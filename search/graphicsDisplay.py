@@ -76,6 +76,12 @@ LASER_SIZE = 0.02
 CAPSULE_COLOR = formatColor(1,1,1)
 CAPSULE_SIZE = 0.25
 
+# Coffee graphics (new)
+COFFEE_COLOR = formatColor(0.55, 0.27, 0.07)  # brown
+COFFEE_SIZE = 0.60
+COFFEE_POT_COLOR = formatColor(0.85, 0.88, 0.9)
+COFFEE_HANDLE_COLOR = formatColor(0.08, 0.08, 0.08)
+COFFEE_HIGHLIGHT = formatColor(1.0, 1.0, 1.0)
 # Drawing walls
 WALL_RADIUS = 0.15
 
@@ -206,6 +212,7 @@ class PacmanGraphics:
         self.drawWalls(layout.walls)
         self.food = self.drawFood(layout.food)
         self.capsules = self.drawCapsules(layout.capsules)
+        self.coffees = self.drawCoffees(layout.coffee)   
         refresh()
 
     def drawAgentObjects(self, state):
@@ -553,6 +560,64 @@ class PacmanGraphics:
             capsuleImages[capsule] = dot
         return capsuleImages
 
+    def drawCapsules(self, capsules ):
+        capsuleImages = {}
+        for capsule in capsules:
+            ( screen_x, screen_y ) = self.to_screen(capsule)
+            dot = circle( (screen_x, screen_y),
+                              CAPSULE_SIZE * self.gridSize,
+                              outlineColor = CAPSULE_COLOR,
+                              fillColor = CAPSULE_COLOR,
+                              width = 1)
+            capsuleImages[capsule] = dot
+        return capsuleImages
+
+    def drawCoffees(self, coffeeGrid ):
+        """
+        Draw coffee mugs (side view) where coffeeGrid[x][y] is True.
+        coffeeGrid is a Grid (same structure as food)
+        """
+        coffeeImages = {}
+        for xNum, x in enumerate(coffeeGrid):
+            for yNum, cell in enumerate(x):
+                if not cell:
+                    continue
+
+                cx, cy = self.to_screen((xNum, yNum))
+                
+                # Use COFFEE_SIZE (0.40) to determine the overall size.
+                mug_height = COFFEE_SIZE * self.gridSize
+                mug_width = mug_height * 0.9  # Make it slightly taller than wide
+                half_h = mug_height * 0.5
+                half_w = mug_width * 0.5
+
+                # 1. Draw the main mug body (light grey)
+                # Remember: (cx, cy) is the center. 
+                # y- is up, y+ is down.
+                body_coords = [
+                    (cx - half_w, cy - half_h),  # Top-left
+                    (cx + half_w, cy - half_h),  # Top-right
+                    (cx + half_w, cy + half_h),  # Bottom-right
+                    (cx - half_w, cy + half_h)   # Bottom-left
+                ]
+                body = polygon(body_coords, COFFEE_POT_COLOR, filled=1)
+
+                # 2. Draw the coffee liquid inside (brown)
+                liquid_top_y = cy - half_h + (mug_height * 0.1)  # 10% from top for rim
+                liquid_bottom_y = cy - half_h + (mug_height * 0.4) # Fill it 30%
+                
+                liquid_coords = [
+                    (cx - half_w * 0.9, liquid_top_y),  # Top-left of liquid
+                    (cx + half_w * 0.9, liquid_top_y),  # Top-right
+                    (cx + half_w * 0.9, liquid_bottom_y), # Bottom-right
+                    (cx - half_w * 0.9, liquid_bottom_y)  # Bottom-left
+                ]
+                liquid = polygon(liquid_coords, COFFEE_COLOR, filled=1)
+
+                # Store all parts of the image
+                coffeeImages[(xNum, yNum)] = [body, liquid]
+        return coffeeImages
+    
     def removeFood(self, cell, foodImages ):
         x, y = cell
         remove_from_screen(foodImages[x][y])

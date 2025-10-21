@@ -31,6 +31,7 @@ class Layout:
         self.walls = Grid(self.width, self.height, False)
         self.food = Grid(self.width, self.height, False)
         self.capsules = []
+        self.coffee = Grid(self.width, self.height, False)
         self.agentPositions = []
         self.numGhosts = 0
         self.processLayoutText(layoutText)
@@ -104,6 +105,7 @@ class Layout:
          o - Capsule
          G - Ghost
          P - Pacman
+         C - Coffee
         Other characters are ignored.
         """
         maxY = self.height - 1
@@ -123,6 +125,8 @@ class Layout:
             self.capsules.append((x, y))
         elif layoutChar == 'P':
             self.agentPositions.append( (0, (x, y) ) )
+        elif layoutChar == 'C':
+            self.coffee[x][y] = True
         elif layoutChar in ['G']:
             self.agentPositions.append( (1, (x, y) ) )
             self.numGhosts += 1
