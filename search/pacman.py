@@ -487,7 +487,7 @@ def readCommand( argv ):
                     - starts an interactive game on a smaller board, zoomed in
     """
     parser = OptionParser(usageStr)
-
+    
     parser.add_option('-n', '--numGames', dest='numGames', type='int',
                       help=default('the number of GAMES to play'), metavar='GAMES', default=1)
     parser.add_option('-l', '--layout', dest='layout',
@@ -502,7 +502,7 @@ def readCommand( argv ):
                       help='Generate minimal output and no graphics', default=False)
     parser.add_option('-g', '--ghosts', dest='ghost',
                       help=default('the ghost agent TYPE in the ghostAgents module to use'),
-                      metavar = 'TYPE', default='RandomGhost')
+                      metavar='TYPE', default='RandomGhost')
     parser.add_option('-k', '--numghosts', type='int', dest='numGhosts',
                       help=default('The maximum number of ghosts to use'), default=4)
     parser.add_option('-z', '--zoom', type='float', dest='zoom',
@@ -553,7 +553,24 @@ def readCommand( argv ):
 
     # Choose a ghost agent
     ghostType = loadAgent(options.ghost, noKeyboard)
-    args['ghosts'] = [ghostType( i+1 ) for i in range( options.numGhosts )]
+    args['ghosts'] = []
+    for i in range(1, args['layout'].getNumGhosts() + 1):
+        # Check if this is the coffee ghost (agent index 5)
+        if i == 5:
+            # Load the coffee ghost agent from ghostAgents module
+            try:
+                import ghostAgents
+                if hasattr(ghostAgents, 'CoffeeGhostAgent'):
+                    args['ghosts'].append(ghostAgents.CoffeeGhostAgent(i))
+                    print(f"Loading CoffeeGhostAgent for ghost {i}")
+                else:
+                    print(f"Warning: CoffeeGhostAgent not found in ghostAgents.py, using default ghost")
+                    args['ghosts'].append(ghostType(i))
+            except Exception as e:
+                print(f"Error loading CoffeeGhostAgent: {e}, using default ghost for agent {i}")
+                args['ghosts'].append(ghostType(i))
+        else:
+            args['ghosts'].append(ghostType(i))
 
     # Choose a display format
     if options.quietGraphics:
@@ -575,7 +592,7 @@ def readCommand( argv ):
     if options.gameToReplay != None:
         print('Replaying recorded game %s.' % options.gameToReplay)
         import pickle
-        f = open(options.gameToReplay, 'rb')
+        f = open(options.gameToReplay)
         try: recorded = pickle.load(f)
         finally: f.close()
         recorded['display'] = args['display']
@@ -595,7 +612,7 @@ def loadAgent(pacman, nographics):
 
     for moduleDir in pythonPathDirs:
         if not os.path.isdir(moduleDir): continue
-        moduleNames = [f for f in os.listdir(moduleDir) if f.endswith('gents.py')]
+        moduleNames = [f for f in os.listdir(moduleDir) if f.endswith('gents.py') or f == 'coffeeGhostAgent.py']
         for modulename in moduleNames:
             try:
                 module = __import__(modulename[:-3])
