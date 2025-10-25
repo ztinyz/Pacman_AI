@@ -87,6 +87,7 @@ class CoffeeGhostAgent(Agent):
         self.state = "SEEKING_COFFEE"  # States: SEEKING_COFFEE, SEEKING_GHOST
         self.coffeeTarget = None
         self.ghostTarget = None
+        self.ghostTargetIndex = None 
         self.currentPath = []  # Store the computed path
         
     def getAction(self, state):
@@ -118,8 +119,10 @@ class CoffeeGhostAgent(Agent):
             if self.ghostTarget and util.manhattanDistance(myPos, self.ghostTarget) < 2:
                 print(f"Ghost {self.index} reached ghost at {self.ghostTarget}! Now seeking coffee.")
                 self.state = "SEEKING_COFFEE"
-                self.coffeeTarget = None  # Reset coffee target
-                self.currentPath = []  # Reset path
+                self.coffeeTarget = None
+                self.ghostTarget = None
+                self.ghostTargetIndex = None
+                self.currentPath = []
         
         # Execute action based on current state
         if self.state == "SEEKING_COFFEE":
@@ -278,13 +281,17 @@ class CoffeeGhostAgent(Agent):
         if not otherGhosts:
             return random.choice(legalActions)
         
-        # Pick a new random ghost target if we don't have one
-        if self.ghostTarget is None or util.manhattanDistance(myPos, self.ghostTarget) < 2:
-            self.ghostTarget = random.choice(otherGhosts)
-            print(f"Ghost {self.index} now targeting ghost at {self.ghostTarget}")
-            self.currentPath = []
+        # Pick a new random ghost target if we don't have one OR update existing target's position
+        if self.ghostTarget is None:
+            # First time: pick a random ghost index to follow
+            self.ghostTargetIndex = random.choice([i for i in range(1, state.getNumAgents()) if i != self.index])
+            print(f"Ghost {self.index} now targeting ghost {self.ghostTargetIndex}")
         
-        # Compute path to target ghost using Bellman-Ford
+        # Always get the current position of the target ghost
+        targetGhostPos = state.getGhostPosition(self.ghostTargetIndex)
+        self.ghostTarget = (int(targetGhostPos[0]), int(targetGhostPos[1]))
+        
+        # Recalculate path every turn to track the moving ghost
         path = self.bellmanFord(state, myPos, self.ghostTarget)
         
         if path:
