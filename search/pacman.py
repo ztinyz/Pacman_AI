@@ -383,6 +383,9 @@ class GhostRules:
     These functions dictate how ghosts interact with their environment.
     """
     GHOST_SPEED=1.0
+    # Coffee boost configuration
+    COFFEE_BOOST_TIME = 20            # number of ghost moves the boost lasts
+    COFFEE_BOOST_MULTIPLIER = 2.0     # movement speed multiplier while boosted
     def getLegalActions( state, ghostIndex ):
         """
         Ghosts cannot stop, and cannot turn around unless they
@@ -406,9 +409,38 @@ class GhostRules:
 
         ghostState = state.data.agentStates[ghostIndex]
         speed = GhostRules.GHOST_SPEED
-        if ghostState.scaredTimer > 0: speed /= 2.0
-        vector = Actions.directionToVector( action, speed )
-        ghostState.configuration = ghostState.configuration.generateSuccessor( vector )
+        # Apply scared modifier (slower)
+        if ghostState.scaredTimer > 0:
+            speed /= 2.0
+        # Apply coffee boost (faster)
+        if getattr(ghostState, 'speedBoostTimer', 0) > 0:
+            speed *= GhostRules.COFFEE_BOOST_MULTIPLIER
+
+        # Perform movement in small steps to avoid clipping through walls
+        walls = state.data.layout.walls
+        remaining = speed
+        # To avoid floating precision issues
+        eps = 1e-9
+        while remaining > eps:
+            step = 1.0 if remaining >= 1.0 - eps else remaining
+            # Check legality at current configuration for the chosen direction
+            conf = ghostState.configuration
+            possible = Actions.getPossibleActions(conf, walls)
+            # Ghosts cannot stop, and cannot reverse unless dead end (consistent with getLegalActions)
+            reverse = Actions.reverseDirection(conf.direction)
+            if Directions.STOP in possible:
+                possible.remove(Directions.STOP)
+            if reverse in possible and len(possible) > 1:
+                possible.remove(reverse)
+            if action not in possible:
+                # Can't continue in that direction; stop additional boosted steps
+                break
+            # Move a single step in the chosen direction
+            vec = Actions.directionToVector(action, step)
+            ghostState.configuration = ghostState.configuration.generateSuccessor(vec)
+            remaining -= step
+            # After each sub-step, allow coffee pickup and boost transfer
+            GhostRules._handleCoffeeAndBoostTransfer(state, ghostIndex)
     applyAction = staticmethod( applyAction )
 
     def decrementTimer( ghostState):
@@ -416,6 +448,12 @@ class GhostRules:
         if timer == 1:
             ghostState.configuration.pos = nearestPoint( ghostState.configuration.pos )
         ghostState.scaredTimer = max( 0, timer - 1 )
+        # Decrement coffee boost timer and snap to grid when it expires
+        if hasattr(ghostState, 'speedBoostTimer'):
+            bt = ghostState.speedBoostTimer
+            if bt == 1:
+                ghostState.configuration.pos = nearestPoint( ghostState.configuration.pos )
+            ghostState.speedBoostTimer = max(0, bt - 1)
     decrementTimer = staticmethod( decrementTimer )
 
     def checkDeath( state, agentIndex):
@@ -453,6 +491,49 @@ class GhostRules:
     def placeGhost(state, ghostState):
         ghostState.configuration = ghostState.start
     placeGhost = staticmethod( placeGhost )
+
+    def _handleCoffeeAndBoostTransfer(state, movedGhostIndex):
+        """
+        Internal helper: award coffee boost when a ghost stands on coffee, and
+        transfer boost to another ghost on contact.
+        """
+        # Ensure coffee grid exists
+        layout_obj = getattr(state.data, 'layout', None)
+        coffee_grid = getattr(layout_obj, 'coffee', None) if layout_obj else None
+        if coffee_grid is None:
+            return
+
+        gState = state.data.agentStates[movedGhostIndex]
+        pos = gState.configuration.getPosition()
+        if pos is None:
+            return
+        x, y = nearestPoint(pos)
+        xi, yi = int(x), int(y)
+
+        # Coffee pickup: if the ghost is on a coffee tile, grant/refresh boost
+        try:
+            if coffee_grid[xi][yi]:
+                gState.speedBoostTimer = GhostRules.COFFEE_BOOST_TIME
+        except Exception:
+            pass
+
+        # Transfer boost when touching another ghost (adjacent or same cell)
+        if getattr(gState, 'speedBoostTimer', 0) > 0:
+            for idx in range(1, len(state.data.agentStates)):
+                if idx == movedGhostIndex:
+                    continue
+                other = state.data.agentStates[idx]
+                if other is None or other.isPacman:
+                    continue
+                oPos = other.configuration.getPosition()
+                if oPos is None:
+                    continue
+                ox, oy = nearestPoint(oPos)
+                if abs(int(ox) - xi) + abs(int(oy) - yi) <= 1:
+                    other.speedBoostTimer = GhostRules.COFFEE_BOOST_TIME
+                    gState.speedBoostTimer = 0  # transfer
+                    break
+    _handleCoffeeAndBoostTransfer = staticmethod(_handleCoffeeAndBoostTransfer)
 
 #############################
 # FRAMEWORK TO START A GAME #

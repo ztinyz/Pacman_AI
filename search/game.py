@@ -127,6 +127,8 @@ class AgentState:
         self.configuration = startConfiguration
         self.isPacman = isPacman
         self.scaredTimer = 0
+        # Coffee speed boost timer: when > 0, the ghost moves faster
+        self.speedBoostTimer = 0
         self.numCarrying = 0
         self.numReturned = 0
 
@@ -148,6 +150,7 @@ class AgentState:
         state = AgentState( self.start, self.isPacman )
         state.configuration = self.configuration
         state.scaredTimer = self.scaredTimer
+        state.speedBoostTimer = self.speedBoostTimer
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state

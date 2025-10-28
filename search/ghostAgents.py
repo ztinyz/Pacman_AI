@@ -162,6 +162,10 @@ class CoffeeGhostAgent(Agent):
                     distance[(x, y)] = float('inf')
                     predecessor[(x, y)] = None
         
+        # If start or goal is invalid (e.g., inside a wall), abort
+        if start not in distance or goal not in distance:
+            return None
+
         distance[start] = 0
         
         # Get all valid positions (nodes)
@@ -199,7 +203,7 @@ class CoffeeGhostAgent(Agent):
                 break
         
         # Reconstruct path from goal to start
-        if distance[goal] == float('inf'):
+        if goal not in distance or distance[goal] == float('inf'):
             return None  # No path exists
         
         path = []
